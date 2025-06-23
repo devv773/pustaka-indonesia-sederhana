@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export interface Buku {
@@ -46,6 +45,8 @@ interface PustakaContextType {
   hapusAnggota: (id: string) => void;
   pinjamBuku: (idAnggota: string, idBuku: string) => boolean;
   kembalikanBuku: (idPeminjaman: string) => boolean;
+  hitungDenda: (tanggalKembali: string) => number;
+  getPeminjamanTerlambat: () => Peminjaman[];
 }
 
 const PustakaContext = createContext<PustakaContextType | undefined>(undefined);
@@ -129,6 +130,26 @@ export const PustakaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setDaftarAnggota(anggotaContoh);
   }, []);
 
+  const hitungDenda = (tanggalKembali: string): number => {
+    const today = new Date();
+    const dueDate = new Date(tanggalKembali);
+    const diffTime = today.getTime() - dueDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 0) {
+      return diffDays * 1000; // Denda Rp 1.000 per hari
+    }
+    
+    return 0;
+  };
+
+  const getPeminjamanTerlambat = (): Peminjaman[] => {
+    const today = new Date().toISOString().split('T')[0];
+    return daftarPeminjaman.filter(p => 
+      p.status === 'dipinjam' && p.tanggalKembali < today
+    );
+  };
+
   const tambahBuku = (buku: Omit<Buku, 'id'>) => {
     const bukuBaru: Buku = {
       ...buku,
@@ -187,8 +208,15 @@ export const PustakaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const peminjaman = daftarPeminjaman.find(p => p.id === idPeminjaman);
     if (!peminjaman || peminjaman.status !== 'dipinjam') return false;
 
+    const denda = hitungDenda(peminjaman.tanggalKembali);
+    const status = denda > 0 ? 'terlambat' : 'dikembalikan';
+
     setDaftarPeminjaman(prev => prev.map(p => 
-      p.id === idPeminjaman ? { ...p, status: 'dikembalikan' as const } : p
+      p.id === idPeminjaman ? { 
+        ...p, 
+        status: status as const,
+        denda: denda > 0 ? denda : undefined
+      } : p
     ));
     
     setDaftarBuku(prev => prev.map(b => 
@@ -210,7 +238,9 @@ export const PustakaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       editAnggota,
       hapusAnggota,
       pinjamBuku,
-      kembalikanBuku
+      kembalikanBuku,
+      hitungDenda,
+      getPeminjamanTerlambat
     }}>
       {children}
     </PustakaContext.Provider>

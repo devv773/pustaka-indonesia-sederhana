@@ -5,14 +5,23 @@ import { usePustaka } from '@/contexts/PustakaContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Users, BookMarked, LogOut, Plus, Edit, Trash2 } from 'lucide-react';
+import { BookOpen, Users, BookMarked, LogOut, Plus, Edit, Trash2, Clock, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import FormBuku from '@/components/FormBuku';
 import FormAnggota from '@/components/FormAnggota';
 
 const AdminDashboard = () => {
   const { pengguna, logout } = useAuth();
-  const { daftarBuku, daftarAnggota, daftarPeminjaman, hapusBuku, hapusAnggota } = usePustaka();
+  const { 
+    daftarBuku, 
+    daftarAnggota, 
+    daftarPeminjaman, 
+    hapusBuku, 
+    hapusAnggota, 
+    kembalikanBuku,
+    getPeminjamanTerlambat,
+    hitungDenda
+  } = usePustaka();
   const [showFormBuku, setShowFormBuku] = useState(false);
   const [showFormAnggota, setShowFormAnggota] = useState(false);
   const [editingBuku, setEditingBuku] = useState<string | null>(null);
@@ -37,7 +46,25 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleKembalikanBuku = (idPeminjaman: string) => {
+    const berhasil = kembalikanBuku(idPeminjaman);
+    if (berhasil) {
+      const peminjaman = daftarPeminjaman.find(p => p.id === idPeminjaman);
+      const denda = peminjaman ? hitungDenda(peminjaman.tanggalKembali) : 0;
+      
+      if (denda > 0) {
+        toast.success(`Buku dikembalikan dengan denda Rp ${denda.toLocaleString()}`);
+      } else {
+        toast.success('Buku berhasil dikembalikan');
+      }
+    } else {
+      toast.error('Gagal mengembalikan buku');
+    }
+  };
+
   const bukuDipinjam = daftarPeminjaman.filter(p => p.status === 'dipinjam').length;
+  const peminjamanTerlambat = getPeminjamanTerlambat();
+  const peminjamanAktif = daftarPeminjaman.filter(p => p.status === 'dipinjam');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -75,7 +102,7 @@ const AdminDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -115,7 +142,19 @@ const AdminDashboard = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <BookOpen className="w-8 h-8 text-red-600" />
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Terlambat</p>
+                  <p className="text-2xl font-bold text-gray-900">{peminjamanTerlambat.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <BookOpen className="w-8 h-8 text-purple-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Buku Tersedia</p>
                   <p className="text-2xl font-bold text-gray-900">
@@ -133,6 +172,7 @@ const AdminDashboard = () => {
             <TabsTrigger value="buku">Kelola Buku</TabsTrigger>
             <TabsTrigger value="anggota">Kelola Anggota</TabsTrigger>
             <TabsTrigger value="peminjaman">Data Peminjaman</TabsTrigger>
+            <TabsTrigger value="pengembalian">Pengembalian</TabsTrigger>
           </TabsList>
 
           {/* Kelola Buku */}
@@ -292,6 +332,7 @@ const AdminDashboard = () => {
                         <th className="text-left p-4 font-medium">Tanggal Pinjam</th>
                         <th className="text-left p-4 font-medium">Tanggal Kembali</th>
                         <th className="text-left p-4 font-medium">Status</th>
+                        <th className="text-left p-4 font-medium">Denda</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -316,6 +357,9 @@ const AdminDashboard = () => {
                                 {peminjaman.status}
                               </span>
                             </td>
+                            <td className="p-4">
+                              {peminjaman.denda ? `Rp ${peminjaman.denda.toLocaleString()}` : '-'}
+                            </td>
                           </tr>
                         );
                       })}
@@ -324,6 +368,140 @@ const AdminDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Pengembalian */}
+          <TabsContent value="pengembalian">
+            <div className="space-y-6">
+              {/* Peminjaman Terlambat */}
+              {peminjamanTerlambat.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <AlertTriangle className="w-5 h-5 text-red-600" />
+                      <span>Peminjaman Terlambat</span>
+                    </CardTitle>
+                    <CardDescription>Buku yang terlambat dikembalikan</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-4 font-medium">Anggota</th>
+                            <th className="text-left p-4 font-medium">Buku</th>
+                            <th className="text-left p-4 font-medium">Tgl Kembali</th>
+                            <th className="text-left p-4 font-medium">Hari Terlambat</th>
+                            <th className="text-left p-4 font-medium">Denda</th>
+                            <th className="text-left p-4 font-medium">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {peminjamanTerlambat.map((peminjaman) => {
+                            const anggota = daftarAnggota.find(a => a.id === peminjaman.idAnggota);
+                            const buku = daftarBuku.find(b => b.id === peminjaman.idBuku);
+                            const denda = hitungDenda(peminjaman.tanggalKembali);
+                            const hariTerlambat = Math.ceil((new Date().getTime() - new Date(peminjaman.tanggalKembali).getTime()) / (1000 * 60 * 60 * 24));
+                            
+                            return (
+                              <tr key={peminjaman.id} className="border-b hover:bg-red-50">
+                                <td className="p-4">{anggota?.nama || 'Unknown'}</td>
+                                <td className="p-4">{buku?.judul || 'Unknown'}</td>
+                                <td className="p-4">{peminjaman.tanggalKembali}</td>
+                                <td className="p-4 text-red-600 font-medium">{hariTerlambat} hari</td>
+                                <td className="p-4 text-red-600 font-medium">Rp {denda.toLocaleString()}</td>
+                                <td className="p-4">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleKembalikanBuku(peminjaman.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Kembalikan + Denda
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Semua Peminjaman Aktif */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                    <span>Peminjaman Aktif</span>
+                  </CardTitle>
+                  <CardDescription>Buku yang sedang dipinjam</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {peminjamanAktif.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-4 font-medium">Anggota</th>
+                            <th className="text-left p-4 font-medium">Buku</th>
+                            <th className="text-left p-4 font-medium">Tgl Pinjam</th>
+                            <th className="text-left p-4 font-medium">Tgl Kembali</th>
+                            <th className="text-left p-4 font-medium">Status</th>
+                            <th className="text-left p-4 font-medium">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {peminjamanAktif.map((peminjaman) => {
+                            const anggota = daftarAnggota.find(a => a.id === peminjaman.idAnggota);
+                            const buku = daftarBuku.find(b => b.id === peminjaman.idBuku);
+                            const isOverdue = peminjaman.tanggalKembali < new Date().toISOString().split('T')[0];
+                            
+                            return (
+                              <tr key={peminjaman.id} className={`border-b hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
+                                <td className="p-4">{anggota?.nama || 'Unknown'}</td>
+                                <td className="p-4">{buku?.judul || 'Unknown'}</td>
+                                <td className="p-4">{peminjaman.tanggalPinjam}</td>
+                                <td className="p-4">{peminjaman.tanggalKembali}</td>
+                                <td className="p-4">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    isOverdue 
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {isOverdue ? 'Terlambat' : 'Aktif'}
+                                  </span>
+                                </td>
+                                <td className="p-4">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleKembalikanBuku(peminjaman.id)}
+                                    className={isOverdue ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
+                                  >
+                                    {isOverdue ? 'Kembalikan + Denda' : 'Kembalikan'}
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Tidak ada peminjaman aktif
+                      </h3>
+                      <p className="text-gray-500">
+                        Semua buku telah dikembalikan
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
