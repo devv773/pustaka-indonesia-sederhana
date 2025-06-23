@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePustaka } from '@/contexts/PustakaContext';
@@ -7,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { BookOpen, LogOut, Search, BookMarked, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import DatePickerDialog from '@/components/DatePickerDialog';
 
 const AnggotaDashboard = () => {
   const { pengguna, logout } = useAuth();
@@ -20,21 +20,29 @@ const AnggotaDashboard = () => {
   } = usePustaka();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'katalog' | 'peminjaman'>('katalog');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<{ id: string; title: string } | null>(null);
 
   const handleLogout = () => {
     logout();
     toast.success('Berhasil keluar');
   };
 
-  const handlePinjamBuku = (idBuku: string) => {
-    if (!pengguna) return;
+  const handlePinjamBuku = (idBuku: string, judulBuku: string) => {
+    setSelectedBook({ id: idBuku, title: judulBuku });
+    setShowDatePicker(true);
+  };
+
+  const handleConfirmPinjam = (tanggalKembali: string) => {
+    if (!pengguna || !selectedBook) return;
     
-    const berhasil = pinjamBuku(pengguna.id, idBuku);
+    const berhasil = pinjamBuku(pengguna.id, selectedBook.id, tanggalKembali);
     if (berhasil) {
       toast.success('Buku berhasil dipinjam!');
     } else {
       toast.error('Gagal meminjam buku. Stok mungkin habis.');
     }
+    setSelectedBook(null);
   };
 
   const handleKembalikanBuku = (idPeminjaman: string) => {
@@ -250,7 +258,7 @@ const AnggotaDashboard = () => {
                         
                         <Button
                           size="sm"
-                          onClick={() => handlePinjamBuku(buku.id)}
+                          onClick={() => handlePinjamBuku(buku.id, buku.judul)}
                           disabled={buku.tersedia === 0}
                           className="bg-red-600 hover:bg-red-700"
                         >
@@ -420,6 +428,19 @@ const AnggotaDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Date Picker Dialog */}
+      {selectedBook && (
+        <DatePickerDialog
+          isOpen={showDatePicker}
+          onClose={() => {
+            setShowDatePicker(false);
+            setSelectedBook(null);
+          }}
+          onConfirm={handleConfirmPinjam}
+          bookTitle={selectedBook.title}
+        />
+      )}
     </div>
   );
 };

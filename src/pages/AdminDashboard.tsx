@@ -1,12 +1,12 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePustaka } from '@/contexts/PustakaContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Users, BookMarked, LogOut, Plus, Edit, Trash2, Clock, AlertTriangle } from 'lucide-react';
+import { BookOpen, Users, BookMarked, LogOut, Plus, Edit, Trash2, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import FormBuku from '@/components/FormBuku';
 import FormAnggota from '@/components/FormAnggota';
 
@@ -20,7 +20,9 @@ const AdminDashboard = () => {
     hapusAnggota, 
     kembalikanBuku,
     getPeminjamanTerlambat,
-    hitungDenda
+    hitungDenda,
+    getStatistikBulanan,
+    getAnggotaTerAktif
   } = usePustaka();
   const [showFormBuku, setShowFormBuku] = useState(false);
   const [showFormAnggota, setShowFormAnggota] = useState(false);
@@ -65,6 +67,8 @@ const AdminDashboard = () => {
   const bukuDipinjam = daftarPeminjaman.filter(p => p.status === 'dipinjam').length;
   const peminjamanTerlambat = getPeminjamanTerlambat();
   const peminjamanAktif = daftarPeminjaman.filter(p => p.status === 'dipinjam');
+  const statistikBulanan = getStatistikBulanan();
+  const anggotaTerAktif = getAnggotaTerAktif();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -161,6 +165,83 @@ const AdminDashboard = () => {
                     {daftarBuku.reduce((total, buku) => total + buku.tersedia, 0)}
                   </p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Charts and Analytics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Monthly Loan Statistics */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <TrendingUp className="w-5 h-5 text-blue-600" />
+                <span>Aktivitas Peminjaman Bulanan</span>
+              </CardTitle>
+              <CardDescription>Grafik peminjaman buku per bulan</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={statistikBulanan}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="bulan" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="jumlah" 
+                      stroke="#dc2626" 
+                      strokeWidth={2}
+                      name="Jumlah Peminjaman"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Most Active Members */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="w-5 h-5 text-green-600" />
+                <span>Anggota Paling Aktif</span>
+              </CardTitle>
+              <CardDescription>5 anggota dengan peminjaman terbanyak</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {anggotaTerAktif.length > 0 ? (
+                  anggotaTerAktif.map((item, index) => (
+                    <div key={item.anggota.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                          index === 0 ? 'bg-yellow-500' : 
+                          index === 1 ? 'bg-gray-400' : 
+                          index === 2 ? 'bg-orange-500' : 'bg-blue-500'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{item.anggota.nama}</p>
+                          <p className="text-sm text-gray-500">{item.anggota.noAnggota}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-lg text-red-600">{item.jumlahPeminjaman}</p>
+                        <p className="text-xs text-gray-500">peminjaman</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">Belum ada data peminjaman</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

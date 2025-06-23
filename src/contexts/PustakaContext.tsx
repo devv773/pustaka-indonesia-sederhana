@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export interface Buku {
@@ -44,10 +43,12 @@ interface PustakaContextType {
   tambahAnggota: (anggota: Omit<Anggota, 'id'>) => void;
   editAnggota: (id: string, anggota: Partial<Anggota>) => void;
   hapusAnggota: (id: string) => void;
-  pinjamBuku: (idAnggota: string, idBuku: string) => boolean;
+  pinjamBuku: (idAnggota: string, idBuku: string, tanggalKembali?: string) => boolean;
   kembalikanBuku: (idPeminjaman: string) => boolean;
   hitungDenda: (tanggalKembali: string) => number;
   getPeminjamanTerlambat: () => Peminjaman[];
+  getStatistikBulanan: () => { bulan: string; jumlah: number }[];
+  getAnggotaTerAktif: () => { anggota: Anggota; jumlahPeminjaman: number }[];
 }
 
 const PustakaContext = createContext<PustakaContextType | undefined>(undefined);
@@ -151,6 +152,52 @@ export const PustakaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   };
 
+  const getStatistikBulanan = (): { bulan: string; jumlah: number }[] => {
+    const monthlyStats: { [key: string]: number } = {};
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    
+    // Initialize all months with 0
+    months.forEach(month => {
+      monthlyStats[month] = 0;
+    });
+    
+    // Count loans by month
+    daftarPeminjaman.forEach(peminjaman => {
+      const date = new Date(peminjaman.tanggalPinjam);
+      const monthName = months[date.getMonth()];
+      monthlyStats[monthName]++;
+    });
+    
+    return months.map(month => ({
+      bulan: month,
+      jumlah: monthlyStats[month]
+    }));
+  };
+
+  const getAnggotaTerAktif = (): { anggota: Anggota; jumlahPeminjaman: number }[] => {
+    const anggotaStats: { [key: string]: number } = {};
+    
+    // Count loans per member
+    daftarPeminjaman.forEach(peminjaman => {
+      anggotaStats[peminjaman.idAnggota] = (anggotaStats[peminjaman.idAnggota] || 0) + 1;
+    });
+    
+    // Create array with member data and loan count
+    const result = Object.entries(anggotaStats)
+      .map(([idAnggota, jumlah]) => {
+        const anggota = daftarAnggota.find(a => a.id === idAnggota);
+        return anggota ? { anggota, jumlahPeminjaman: jumlah } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => b!.jumlahPeminjaman - a!.jumlahPeminjaman)
+      .slice(0, 5) as { anggota: Anggota; jumlahPeminjaman: number }[];
+    
+    return result;
+  };
+
   const tambahBuku = (buku: Omit<Buku, 'id'>) => {
     const bukuBaru: Buku = {
       ...buku,
@@ -184,16 +231,18 @@ export const PustakaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setDaftarAnggota(prev => prev.filter(a => a.id !== id));
   };
 
-  const pinjamBuku = (idAnggota: string, idBuku: string): boolean => {
+  const pinjamBuku = (idAnggota: string, idBuku: string, tanggalKembali?: string): boolean => {
     const buku = daftarBuku.find(b => b.id === idBuku);
     if (!buku || buku.tersedia <= 0) return false;
+
+    const defaultReturnDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const peminjamanBaru: Peminjaman = {
       id: Date.now().toString(),
       idAnggota,
       idBuku,
       tanggalPinjam: new Date().toISOString().split('T')[0],
-      tanggalKembali: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      tanggalKembali: tanggalKembali || defaultReturnDate,
       status: 'dipinjam'
     };
 
@@ -241,7 +290,9 @@ export const PustakaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       pinjamBuku,
       kembalikanBuku,
       hitungDenda,
-      getPeminjamanTerlambat
+      getPeminjamanTerlambat,
+      getStatistikBulanan,
+      getAnggotaTerAktif
     }}>
       {children}
     </PustakaContext.Provider>
