@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { usePustaka } from '@/contexts/PustakaContext';
 import { Button } from '@/components/ui/button';
@@ -67,7 +66,11 @@ const FormBuku: React.FC<FormBukuProps> = ({ bukuId, onClose }) => {
       editBuku(bukuId, formData);
       toast.success('Buku berhasil diperbarui');
     } else {
-      tambahBuku(formData);
+      const bukuBaru = {
+        ...formData,
+        tersedia: formData.stok // Set tersedia sama dengan stok untuk buku baru
+      };
+      tambahBuku(bukuBaru);
       toast.success('Buku berhasil ditambahkan');
     }
     
