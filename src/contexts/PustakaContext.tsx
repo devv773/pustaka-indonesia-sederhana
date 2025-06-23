@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export interface Buku {
@@ -209,12 +210,12 @@ export const PustakaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!peminjaman || peminjaman.status !== 'dipinjam') return false;
 
     const denda = hitungDenda(peminjaman.tanggalKembali);
-    const status = denda > 0 ? 'terlambat' : 'dikembalikan';
+    const status: 'dikembalikan' | 'terlambat' = denda > 0 ? 'terlambat' : 'dikembalikan';
 
     setDaftarPeminjaman(prev => prev.map(p => 
       p.id === idPeminjaman ? { 
         ...p, 
-        status: status as const,
+        status: status,
         denda: denda > 0 ? denda : undefined
       } : p
     ));
