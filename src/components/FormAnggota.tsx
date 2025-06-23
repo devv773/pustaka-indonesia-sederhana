@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { usePustaka } from '@/contexts/PustakaContext';
 import { Button } from '@/components/ui/button';
@@ -36,9 +35,7 @@ const FormAnggota: React.FC<FormAnggotaProps> = ({ anggotaId, onClose }) => {
           email: anggota.email,
           noAnggota: anggota.noAnggota,
           alamat: anggota.alamat,
-          noTelepon: an
-
-ggota.noTelepon,
+          noTelepon: anggota.noTelepon,
           tanggalDaftar: anggota.tanggalDaftar
         });
       }
